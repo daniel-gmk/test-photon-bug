@@ -46,7 +46,7 @@ public class MigrationManager : MonoBehaviour, INetworkRunnerCallbacks
         // Shutdown and destroy the old runner
         await runner.Shutdown(destroyGameObject: false, shutdownReason: ShutdownReason.HostMigration);
 
-        var physicsSimulate = gameObject.GetComponent<RunnerSimulatePhysics3D>();
+        var physicsSimulate = gameObject.GetComponent<RunnerSimulatePhysics2D>();
         if (physicsSimulate)
         {
             Destroy(physicsSimulate);
@@ -59,7 +59,7 @@ public class MigrationManager : MonoBehaviour, INetworkRunnerCallbacks
 
         // Setup the new runner...
         runner = gameObject.AddComponent<NetworkRunner>();
-        gameObject.AddComponent<RunnerSimulatePhysics3D>();
+        gameObject.AddComponent<RunnerSimulatePhysics2D>();
         runner.name = "Migrated Runner";
         runner.ProvideInput = true;
 
@@ -127,27 +127,6 @@ public class MigrationManager : MonoBehaviour, INetworkRunnerCallbacks
                 });
                 ResumeMigration(resumeNO, newNO);
             }
-            else
-            {
-                InheritedMigrationBehaviour mb2 = resumeNO.GetComponent<InheritedMigrationBehaviour>();
-                if (mb2)
-                {
-                    Debug.Log($"Re-spawning {resumeNO.name} with input authority {resumeNO.InputAuthority}");
-                    Vector3 p = Vector3.zero;
-                    Quaternion q = Quaternion.identity;
-                    if (resumeNO.TryGetBehaviour<NetworkTRSP>(out var posRot))
-                    {
-                        p = posRot.Data.Position;
-                        q = posRot.Data.Rotation;
-                    }
-                    var newNO = runner.Spawn(resumeNO, p, q, PlayerRef.None, (networkRunner, o) =>
-                    {
-                        o.CopyStateFrom(resumeNO);
-                        o.GetComponent<InheritedMigrationBehaviour>().IsPendingMigration = true; // Only need this because player refs change
-                    });
-                    ResumeMigration(resumeNO, newNO);
-                }
-            }
         }
         Debug.Log("Migrated Host State");
     }
@@ -178,32 +157,7 @@ public class MigrationManager : MonoBehaviour, INetworkRunnerCallbacks
         }
         else
         {
-            InheritedMigrationBehaviour oldMigrator2 = resumeNO.GetComponent<InheritedMigrationBehaviour>();
-            if (oldMigrator2 != null)
-            {
-                InheritedMigrationBehaviour newMigrator2 = newNO.GetComponent<InheritedMigrationBehaviour>();
-
-                if (oldMigrator2.LastKnownInputAuth != PlayerRef.None)
-                {
-                    // If player refs didn't change we could set this here instead:					newMigrator.IsPendingMigration = true;
-                    if (!_delayedMigration.TryGetValue(oldMigrator2.LastKnownInputAuth, out List<NetworkObject> list))
-                    {
-                        list = new List<NetworkObject>();
-                        _delayedMigration[oldMigrator2.LastKnownInputAuth] = list;
-                    }
-                    list.Add(newNO);
-                    Debug.Log($"Delayed migration of {newNO.name} for player {oldMigrator2.LastKnownInputAuth}");
-                }
-                else
-                {
-                    newMigrator2.Migrate();
-                    Debug.Log($"Migrated {newMigrator2.name}");
-                }
-            }
-            else
-            {
-                Debug.Log($"Not re-spawning {resumeNO.name} - it is not a migration behaviour");
-            }
+            Debug.Log($"Not re-spawning {resumeNO.name} - it is not a migration behaviour");
         }
     }
 
